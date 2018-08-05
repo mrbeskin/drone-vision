@@ -34,6 +34,9 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 	}
+	if pipeIn == nil {
+		panic("pipe nil")
+	}
 
 	go WriteCameraOutputToMplayerAndPipe(droneVideoOutput, mIn, pipeIn)
 
@@ -83,8 +86,9 @@ func WriteVideoFeedToNamedPipe(droneFrame []byte, pipeOut io.WriteCloser) {
 func mkfifo() (io.WriteCloser, error) {
 	cmd := exec.Command(mkfifoCmd, fifoPath)
 	err := cmd.Run()
+	fmt.Println("done")
 	if err != nil {
 		return nil, err
 	}
-	return os.OpenFile(fifoPath, os.O_RDWR, 0755)
+	return os.OpenFile(fifoPath, os.O_WRONLY, 0755)
 }
