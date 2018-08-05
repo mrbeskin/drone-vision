@@ -10,7 +10,7 @@ type SymbolVisionController struct {
 }
 
 func InitSymbolVision(driver *tello.Driver) *SymbolVisionController {
-	drone := NewTelloDrone(driveR)
+	drone := NewTelloDrone(driver)
 	controller = NewFlightController(drone)
 	return &SymbolVisionController{
 		controller: controller,
@@ -20,6 +20,9 @@ func InitSymbolVision(driver *tello.Driver) *SymbolVisionController {
 const MIN_DIST_INCHES = float64(24.0)
 const MAX_DIF_X = float64(0.1)
 const MAX_DIF_Y = float64(0.1)
+
+func (svc *SymbolVisionController) ListenToYourBrain() {
+}
 
 func (svc *SymbolVisionController) doFlight(xAxis float64, yAxis float64, distance float64) {
 	fmt.Printf("x axis: %f\n", xAxis)
