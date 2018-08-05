@@ -46,11 +46,19 @@ func GetMPlayerInput() (io.WriteCloser, error) {
 	var mPlayer *exec.Cmd
 	if runtime.GOOS == "darwin" {
 		fmt.Println("Mac OS detected")
-		mPlayer = exec.Command("mplayer", "-vo", "-fps", "30", "-")
+		mPlayer = exec.Command("mplayer", "-vo", "-msglevel", "all=9", "-fps", "30", "-")
 	} else {
-		mPlayer = exec.Command("mplayer", "-vo", "x11", "-fps", "30", "-")
+		mPlayer = exec.Command("mplayer", "-vo", "-msglevel", "all=9", "x11", "-fps", "30", "-")
 	}
 	defer mPlayer.Start()
+	go func() {
+		out, _ := mPlayer.StdoutPipe()
+		for {
+			b := make([]byte, 100000)
+			l, _ := out.Read(b)
+			fmt.Println(string(b[:l]))
+		}
+	}()
 	return mPlayer.StdinPipe()
 }
 
