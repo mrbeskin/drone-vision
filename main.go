@@ -90,5 +90,5 @@ func mkfifo() (io.WriteCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	return os.OpenFile(fifoPath, os.O_WRONLY, 0755)
+	return os.OpenFile(fifoPath, os.O_RDWR, os.ModeNamedPipe)
 }
