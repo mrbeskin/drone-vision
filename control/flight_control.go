@@ -1,7 +1,6 @@
 package control
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -153,7 +152,6 @@ func (fc *FlightController) ProcessForwardEvents() {
 		ev, q := fc.ForwardEvents.Pop()
 		fc.vehicle.Forward(ev)
 		fc.ForwardEvents = q
-		fmt.Println("fwprocess")
 	}
 }
 
