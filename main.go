@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"runtime"
@@ -13,12 +12,12 @@ import (
 
 	"gobot.io/x/gobot"
 	"gobot.io/x/gobot/platforms/dji/tello"
-	"gocv.io/x/gocv"
 )
 
 const (
-	frameSize   = 960 * 720 * 3
-	capturePath = "/tmp/drone-vision/capture.jpg"
+	frameSize = 960 * 720 * 3
+	mkfifoCmd = "mkfifo"
+	fifoPath  = "/tmp/drone_vision_pipe"
 )
 
 func main() {
@@ -31,15 +30,17 @@ func main() {
 
 	droneVideoOutput := GetCamStream(drone)
 
-	ffmpegIn, ffmpegOut := InitFfmpeg()
+	pipeIn, err := mkfifo()
+	if err != nil {
+		fmt.Println(err)
+	}
 
-	go WriteCameraOutputToMplayerAndFfmpeg(droneVideoOutput, ffmpegIn, mIn)
+	go WriteCameraOutputToMplayerAndPipe(droneVideoOutput, mIn, pipeIn)
 
 	work := func() {
 		gobot.After(5*time.Second, func() {
 			drone.TakeOff()
 		})
-		go writeFramesToTmp(ffmpegOut)
 		go control.InitControl(drone)
 	}
 
@@ -49,42 +50,6 @@ func main() {
 		work,
 	)
 	robot.Start()
-}
-
-func writeFramesToTmp(ffmpegOut io.ReadCloser) {
-	err := os.MkdirAll("/tmp/drone-vision", 0777)
-	if err != nil {
-		fmt.Println(err)
-	}
-	err = ioutil.WriteFile(capturePath, make([]byte, 0), 0777)
-	if err != nil {
-		fmt.Println(err)
-	}
-	for {
-		buf := make([]byte, frameSize)
-		if _, err := io.ReadFull(ffmpegOut, buf); err != nil {
-			fmt.Println(err)
-			continue
-		}
-
-		img, err := gocv.NewMatFromBytes(720, 960, gocv.MatTypeCV8UC3, buf)
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-		gocv.IMWrite(capturePath, img)
-	}
-}
-
-func InitFfmpeg() (io.WriteCloser, io.ReadCloser) {
-	ffmpeg := exec.Command("ffmpeg", "-i", "pipe:0", "-pix_fmt", "bgr24", "-vcodec", "rawvideo",
-		"-an", "-sn", "-s", "960x720", "-f", "rawvideo", "pipe:1")
-	ffmpegIn, _ := ffmpeg.StdinPipe()
-	ffmpegOut, _ := ffmpeg.StdoutPipe()
-	if err := ffmpeg.Start(); err != nil {
-		panic(err)
-	}
-	return ffmpegIn, ffmpegOut
 }
 
 func GetMPlayerInput() (io.WriteCloser, error) {
@@ -99,17 +64,27 @@ func GetMPlayerInput() (io.WriteCloser, error) {
 	return mPlayer.StdinPipe()
 }
 
-func WriteCameraOutputToMplayerAndFfmpeg(droneVideoOutput chan []byte, mPlayerIn io.WriteCloser, ffmpegIn io.WriteCloser) {
-	frameCount := 0
+func WriteCameraOutputToMplayerAndPipe(droneVideoOutput chan []byte, mPlayerIn io.WriteCloser, pipeIn io.WriteCloser) {
 	for frame := range droneVideoOutput {
 		if _, err := mPlayerIn.Write(frame); err != nil {
 			fmt.Printf("failed to write frame to movie player: %v\n", err)
 		}
-		if (frameCount > 100) && ((frameCount % 10) == 0) {
-			if _, err := ffmpegIn.Write(frame); err != nil {
-				fmt.Printf("failed to write frame to ffmpeg: %v\n", err)
-			}
-		}
-		frameCount++
+		WriteVideoFeedToNamedPipe(frame, pipeIn)
 	}
+}
+
+func WriteVideoFeedToNamedPipe(droneFrame []byte, pipeOut io.WriteCloser) {
+	_, err := pipeOut.Write(droneFrame)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+func mkfifo() (io.WriteCloser, error) {
+	cmd := exec.Command(mkfifoCmd, fifoPath)
+	err := cmd.Run()
+	if err != nil {
+		return nil, err
+	}
+	return os.OpenFile(fifoPath, os.O_RDWR, 0755)
 }
