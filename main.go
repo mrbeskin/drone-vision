@@ -11,6 +11,11 @@ import (
 
 	"gobot.io/x/gobot"
 	"gobot.io/x/gobot/platforms/dji/tello"
+	"gocv.io/x/gocv"
+)
+
+const (
+	frameSize = 960 * 720 * 3
 )
 
 func main() {
@@ -23,13 +28,15 @@ func main() {
 
 	droneVideoOutput := GetCamStream(drone)
 
-	go WriteCameraOutputToMplayer(droneVideoOutput, mIn)
+	ffmpegIn, ffmpegOut := InitFfmpeg()
+
+	go WriteCameraOutputToMplayerAndFfmpeg(droneVideoOutput, ffmpegIn, mIn)
 
 	work := func() {
 		gobot.After(5*time.Second, func() {
 			drone.TakeOff()
 		})
-
+		go writeFramesToTmp(ffmpegOut)
 		go control.InitControl(drone)
 	}
 
@@ -40,6 +47,34 @@ func main() {
 	)
 
 	robot.Start()
+}
+
+func writeFramesToTmp(ffmpegOut io.ReadCloser) {
+	for {
+		buf := make([]byte, frameSize)
+		if _, err := io.ReadFull(ffmpegOut, buf); err != nil {
+			fmt.Println(err)
+			continue
+		}
+
+		img, err := gocv.NewMatFromBytes(720, 960, gocv.MatTypeCV8UC3, buf)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+		gocv.IMWrite("/tmp/drone-vision/capture.png", img)
+	}
+}
+
+func InitFfmpeg() (io.WriteCloser, io.ReadCloser) {
+	ffmpeg := exec.Command("ffmpeg", "-i", "pipe:0", "-pix_fmt", "bgr24", "-vcodec", "rawvideo",
+		"-an", "-sn", "-s", "960x720", "-f", "rawvideo", "pipe:1")
+	ffmpegIn, _ := ffmpeg.StdinPipe()
+	ffmpegOut, _ := ffmpeg.StdoutPipe()
+	if err := ffmpeg.Start(); err != nil {
+		panic(err)
+	}
+	return ffmpegIn, ffmpegOut
 }
 
 func GetMPlayerInput() (io.WriteCloser, error) {
@@ -62,10 +97,17 @@ func GetMPlayerInput() (io.WriteCloser, error) {
 	return mPlayer.StdinPipe()
 }
 
-func WriteCameraOutputToMplayer(droneVideoOutput chan []byte, mPlayerIn io.WriteCloser) {
+func WriteCameraOutputToMplayerAndFfmpeg(droneVideoOutput chan []byte, mPlayerIn io.WriteCloser, ffmpegIn io.WriteCloser) {
+	frameCount := 0
 	for frame := range droneVideoOutput {
 		if _, err := mPlayerIn.Write(frame); err != nil {
 			fmt.Printf("failed to write frame to movie player: %v\n", err)
 		}
+		if (frameCount > 100) && ((frameCount % 10) == 0) {
+			if _, err := ffmpegIn.Write(frame); err != nil {
+				fmt.Printf("failed to write frame to ffmpeg: %v\n", err)
+			}
+		}
+		frameCount++
 	}
 }

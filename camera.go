@@ -42,7 +42,6 @@ func printFrameForDebug(b []byte) {
 		fmt.Println(b)
 	}
 	i++
-
 }
 
 func writeValueToTmpFile(b []byte) {
