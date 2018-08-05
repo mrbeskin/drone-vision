@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os/exec"
 	"runtime"
 	"time"
@@ -15,7 +16,8 @@ import (
 )
 
 const (
-	frameSize = 960 * 720 * 3
+	frameSize   = 960 * 720 * 3
+	capturePath = "/tmp/drone-vision/capture.jpg"
 )
 
 func main() {
@@ -45,11 +47,11 @@ func main() {
 		[]gobot.Device{drone},
 		work,
 	)
-
 	robot.Start()
 }
 
 func writeFramesToTmp(ffmpegOut io.ReadCloser) {
+	ioutil.WriteFile(capturePath, make([]byte, 0), 0644)
 	for {
 		buf := make([]byte, frameSize)
 		if _, err := io.ReadFull(ffmpegOut, buf); err != nil {
@@ -62,7 +64,7 @@ func writeFramesToTmp(ffmpegOut io.ReadCloser) {
 			fmt.Println(err)
 			continue
 		}
-		gocv.IMWrite("/tmp/drone-vision/capture.png", img)
+		gocv.IMWrite(capturePath, img)
 	}
 }
 

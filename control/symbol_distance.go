@@ -5,30 +5,32 @@ import (
 	"math"
 )
 
-func InitSymbolVision(driver *tello.Driver) {
+type SymbolVisionController struct {
+	controller *FlightController
+}
+
+func InitSymbolVision(driver *tello.Driver) *SymbolVisionController {
 	drone := NewTelloDrone(driveR)
-	controller = NewFlightcontroller(drone)
+	controller = NewFlightController(drone)
+	return &SymbolVisionController{
+		controller: controller,
+	}
 }
 
 const MIN_DIST_INCHES = float64(24.0)
 const MAX_DIF_X = float64(0.1)
 const MAX_DIF_Y = float64(0.1)
 
-func doFlight() {
-	// TODO: Parse distance and offset data here
-	yAxis := float64(0.0)
-	xAxis := float64(0.0)
-	distanceInches := float64(0.0)
-
+func (svc *SymbolVisionController) doFlight(xAxis float64, yAxis float64, distance float64) {
 	fmt.Printf("x axis: %f\n", xAxis)
 	// xAxis
 	// > 0 is turn right
 	if yAxis > 0.0 {
 		fmt.Println("right event")
-		controller.Right()
+		svc.controller.Right()
 	} else if xAxis < 0.0 {
 		// < 0 is turn left
-		controller.Left()
+		svc.controller.Left()
 		fmt.Println("left event")
 	}
 
@@ -36,11 +38,11 @@ func doFlight() {
 	// yAxis
 	// > 0 is go up
 	if yAxis > 0.0 {
-		controller.Up()
+		svc.controller.Up()
 		fmt.Prinln("up event")
 	} else if yAxis < 0.0 {
 		// < 0 is go down
-		controller.Down()
+		svc.controller.Down()
 		fmt.Println("down event")
 	}
 
@@ -48,7 +50,7 @@ func doFlight() {
 	// TRACK HORIZTONALLY AND VERTICALLY FIRST, THEN DECIDE BASED ON THRESHOLD
 	if axisWithinThreshold(xAxis, yAxis) {
 		if distance > MIN_DIST_INCHES {
-			controller.Forward()
+			svc.controller.Forward()
 			fmt.Println("forward event")
 		}
 	}
