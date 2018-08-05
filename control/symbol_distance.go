@@ -16,7 +16,7 @@ type SymbolVision struct {
 
 func InitSymbolVision(driver *tello.Driver) *SymbolVisionController {
 	drone := NewTelloDrone(driver)
-	controller = NewFlightController(drone)
+	controller := NewFlightController(drone)
 	return &SymbolVisionController{
 		controller: controller,
 	}
@@ -33,7 +33,7 @@ func (svc *SymbolVisionController) ListenToYourBrain() {
 	// stop if no new instructions for a while
 }
 
-func (svc *SymbolVisionController) doFlight(xAxis float64, yAxis float64, distance float64) {
+func (svc *SymbolVisionController) doFlight(xAxis float64, yAxis float64, distanceInches float64) {
 	fmt.Printf("x axis: %f\n", xAxis)
 	// xAxis
 	// > 0 is turn right
@@ -51,7 +51,7 @@ func (svc *SymbolVisionController) doFlight(xAxis float64, yAxis float64, distan
 	// > 0 is go up
 	if yAxis > 0.0 {
 		svc.controller.Up()
-		fmt.Prinln("up event")
+		fmt.Println("up event")
 	} else if yAxis < 0.0 {
 		// < 0 is go down
 		svc.controller.Down()
@@ -61,7 +61,7 @@ func (svc *SymbolVisionController) doFlight(xAxis float64, yAxis float64, distan
 	fmt.Printf("distance: %f\n", distanceInches)
 	// TRACK HORIZTONALLY AND VERTICALLY FIRST, THEN DECIDE BASED ON THRESHOLD
 	if axisWithinThreshold(xAxis, yAxis) {
-		if distance > MIN_DIST_INCHES {
+		if distanceInches > MIN_DIST_INCHES {
 			svc.controller.Forward()
 			fmt.Println("forward event")
 		}

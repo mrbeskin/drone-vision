@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"os/exec"
 	"runtime"
 	"time"
 
-	"github.com/mrbeskin/drone-hack/control"
+	"github.com/mrbeskin/drone-vision/control"
 
 	"gobot.io/x/gobot"
 	"gobot.io/x/gobot/platforms/dji/tello"
@@ -51,7 +52,14 @@ func main() {
 }
 
 func writeFramesToTmp(ffmpegOut io.ReadCloser) {
-	ioutil.WriteFile(capturePath, make([]byte, 0), 0644)
+	err := os.MkdirAll("/tmp/drone-vision", 0777)
+	if err != nil {
+		fmt.Println(err)
+	}
+	err = ioutil.WriteFile(capturePath, make([]byte, 0), 0777)
+	if err != nil {
+		fmt.Println(err)
+	}
 	for {
 		buf := make([]byte, frameSize)
 		if _, err := io.ReadFull(ffmpegOut, buf); err != nil {
