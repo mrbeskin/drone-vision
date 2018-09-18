@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/mrbeskin/drone-vision/control"
@@ -91,4 +93,42 @@ func mkfifo() (io.WriteCloser, error) {
 		return nil, err
 	}
 	return os.OpenFile(fifoPath, os.O_RDWR, os.ModeNamedPipe)
+}
+
+func runGuidedDrone() io.ReadCloser {
+	cmd := exec.Command("docker", "run", "-it", "-a", "STDOUT", "-a", "STDIN", "--name", "guided_flying", "--rm", "--mount", "type=bind,bind,source=\"/tmp/\",target=/apptarget,readonly", "guided_flying")
+	defer func() {
+		err := cmd.Start()
+		if err != nil {
+			panic(err)
+		}
+	}()
+	out, err := cmd.StdoutPipe()
+	if err != nil {
+		panic(err)
+	}
+	return out
+}
+
+func parseValues(xydistMsg string) (x, y, dist float64, err error) {
+	// ex. [1.0,-1.0,10.0]
+	s := strings.Trim(xydistMsg, " \n[]")
+	sValArray := strings.Split(s, ",")
+	if len(sValArray) > 3 {
+		return float64(0.0), float64(0.0), float64(0.0), fmt.Errorf("string value array parsed does not three values, abort! value: %v", xydistMsg)
+	}
+	// TODO: errors
+	x, err = strconv.ParseFloat(sValArray[0], 64)
+	checkFloatErr(err)
+	y, err = strconv.ParseFloat(sValArray[1], 64)
+	checkFloatErr(err)
+	dist, err = strconv.ParseFloat(sValArray[2], 64)
+	checkFloatErr(err)
+	return x, y, dist, nil
+}
+
+func checkFloatErr(err error) {
+	if err != nil {
+		panic(fmt.Sprintf("couldn't parse float from model: %v", err))
+	}
 }
